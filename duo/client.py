@@ -1,8 +1,7 @@
 import requests as req
 import re
 import time
-import duo_auth
-import parser
+from duo import duo_auth, saml, parser
 from typing import Optional
 
 
@@ -19,6 +18,8 @@ class DuoClient:
         """
         self.username = username
         self.password = password
+        self.url = 'https://acorn.utoronto.ca/'
+        self.saml_url = 'spACS'
         self.session = req.Session()
         self.duo_host = None
         self.sid = None
@@ -73,8 +74,8 @@ class DuoClient:
     def _initial_login(self) -> bool:
         """Perform initial login to get to Duo prompt."""
         # Get initial page
-        url = 'https://acorn.utoronto.ca/'
-        response = self.session.get(url)
+        url = 'https://bypass.utormfa.utoronto.ca/'
+        response = self.session.get(self.url)
 
         if response.status_code != 200:
             print(f"Failed to access initial URL: {response.status_code}")
@@ -248,12 +249,7 @@ class DuoClient:
             print("Failed to find SAML response")
             return False
 
-        # Submit SAML response
-        payload = {
-            'SAMLResponse': saml_response
-        }
-
-        response = self.session.post('https://acorn.utoronto.ca/spACS', data=payload)
+        response = saml.web_completion(self.session, self.url + self.saml_url, saml_response)
 
         if response.status_code != 200:
             print(f"SAML submission failed: {response.status_code}")
@@ -261,17 +257,25 @@ class DuoClient:
 
         return True
 
-    def access_service(self, url: str) -> req.Response:
+    def set_service(self, url: str, saml_url: str) -> None:
         """
-        Access a protected service after authentication.
+        Sets a protected service that requires authentication.
 
         Args:
             url: URL to access
+            saml_url: URL to post
+        """
+        self.url = url
+        self.saml_url = saml_url
+
+    def access_service(self) -> req.Response:
+        """
+        Access a protected service after authentication.
 
         Returns:
             Response object
         """
-        return self.session.get(url)
+        return self.session.get(self.url)
 
     def get_session(self) -> req.Session:
         """Get the authenticated session object."""

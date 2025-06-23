@@ -7,9 +7,11 @@ if __name__ == "__main__":
     password = ''
 
     with DuoClient(username, password) as client:
-        if client.authenticate(auth_method="Duo Push"):
-            response = client.access_service('https://acorn.utoronto.ca/sws/')
+        client.set_service('https://bypass.utormfa.utoronto.ca/','Shibboleth.sso/SAML2/POST')
+
+        if client.authenticate(auth_method="Duo Push", passcode=""):
+            response = client.access_service()
             print("Success! Accessed protected service")
-            print(f"Response length: {len(response.text)}")
+            print(response.text)
         else:
             print("Authentication failed")
